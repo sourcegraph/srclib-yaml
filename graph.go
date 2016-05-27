@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/attfarhan/yaml"
 	"io/ioutil"
 	"log"
@@ -12,6 +13,10 @@ import (
 	"sourcegraph.com/sourcegraph/srclib/graph"
 	"sourcegraph.com/sourcegraph/srclib/unit"
 )
+
+type GraphCmd struct{}
+
+var graphCmd GraphCmd
 
 func init() {
 	_, err := parser.AddCommand("graph",
@@ -24,12 +29,9 @@ func init() {
 	}
 }
 
-type GraphCmd struct{}
-
-var graphCmd GraphCmd
-
 func (c *GraphCmd) Execute(args []string) error {
 	inputBytes, err := ioutil.ReadAll(os.Stdin)
+	fmt.Println(inputBytes)
 	if err != nil {
 		return err
 	}
