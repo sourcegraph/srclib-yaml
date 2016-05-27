@@ -1,10 +1,16 @@
 package main
 
 import (
-	yamlParser "github.com/attfarhan/yaml"
+	"bytes"
+	"encoding/json"
+	"errors"
+	"github.com/attfarhan/yaml"
+	"io/ioutil"
+	"log"
+	"os"
+	"path/filepath"
 	"sourcegraph.com/sourcegraph/srclib/graph"
 	"sourcegraph.com/sourcegraph/srclib/unit"
-	"os"
 )
 
 func init() {
@@ -38,19 +44,24 @@ func (c *GraphCmd) Execute(args []string) error {
 	if err := os.Stdin.Close(); err != nil {
 		return err
 	}
-	if len(units == 0){
+	if len(units) == 0 {
 		log.Fatal("input contains no source unit data.")
 	}
 	out, err := Graph(units)
 	if err != nil {
 		return err
 	}
-	if err := json.NewEncoder(os.Stdout).Encoude(out); err != nil {
+	if err := json.NewEncoder(os.Stdout).Encode(out); err != nil {
 		return err
 	}
 	return nil
 }
 
+type T struct {
+	value  []string
+	line   []int
+	column []int
+}
 
 // graph.Output is a struct with fields:
 // 				Defs []*Def
@@ -63,7 +74,7 @@ func Graph(units unit.SourceUnits) (*graph.Output, error) {
 	}
 	u := units[0]
 	// out is a graph.Output struct with a Ref field of pointers to graph.Ref
-	out := graph.Output{Refs: []*graph.Ref}
+	out := graph.Output{Refs: []*graph.Ref{}}
 
 	// Decode source unit
 	// Get files
@@ -72,33 +83,32 @@ func Graph(units unit.SourceUnits) (*graph.Output, error) {
 
 	for _, currentFile := range u.Files {
 		f, err := ioutil.ReadFile(currentFile)
-		type T struct {
-			value  []string
-			line   []int
-			column []int
+		if err != nil {
+			log.Printf("failed to read a source unit file: %s", err)
+			continue
 		}
-
+		file := string(f)
 		t := &T{}
 		var x []*yaml.Node
-		p := yaml.NewParser([]byte(data))
+		p := yaml.NewParser([]byte(file))
 		node := p.Parse()
 		tokenList := yaml.Explore(node, x)
-		getLineAndColumn(tokenList, data, t)
+		getLineAndColumn(tokenList, file, t)
 		for i, _ := range t.value {
-			start, end, value := findOffsets(data, t.line[i], t.column[i], t.value[i])
-			out.Refs := append(out.Refs, &graph.Ref {
-				DefUnitType: "URL"
-				DefUnit: "Circle"
-				DefPath: os.Getwd() + string(start)
-				Unit: value
-				File: fileName
-				Start: uint32(start)
-				End: uint32(end)
+			start, end, value := findOffsets(file, t.line[i], t.column[i], t.value[i])
+			out.Refs = append(out.Refs, &graph.Ref{
+				DefUnitType: "URL",
+				DefUnit:     "Circle",
+				DefPath:     filepath.ToSlash(currentFile) + string(start),
+				Unit:        value,
+				File:        filepath.ToSlash(currentFile),
+				Start:       uint32(start),
+				End:         uint32(end),
 			})
 		}
-		return &out, nil
+	}
+	return &out, nil
 }
-
 
 func getLineAndColumn(tokenList []*yaml.Node, fileString string, out *T) {
 	for _, token := range tokenList {
@@ -107,7 +117,7 @@ func getLineAndColumn(tokenList []*yaml.Node, fileString string, out *T) {
 		out.column = append(out.line, token.Column)
 		// a, b := findOffsets(data, token.Line, token.Column, token.Value)
 		// fmt.Println("start: ", a, "End: ", b)
-		getLineAndColumn(token.Children, data, out)
+		getLineAndColumn(token.Children, fileString, out)
 	}
 }
 func findOffsets(fileText string, line, column int, token string) (start, end int, value string) {
@@ -162,7 +172,6 @@ func findOffsets(fileText string, line, column int, token string) (start, end in
 // 	}
 // }
 
-
 // // refs = append(refs, &graph.Ref{
 // // 	DefUnitType: "URL",
 // // 	DefUnit:     "MDN",
@@ -171,4 +180,3 @@ func findOffsets(fileText string, line, column int, token string) (start, end in
 // // 	File:        filepath.ToSlash(filePath),
 // // 	Start:       uint32(s),
 // // 	End:         uint32(e),
-
