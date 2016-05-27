@@ -14,9 +14,9 @@ import (
 )
 
 func init() {
-	_, err := parser.AddCommand("scan",
-		"scan for YAML files",
-		"Scan the directory tree rooted at the current directory for YAML files.",
+	_, err := parser.AddCommand("graph",
+		"graph for YAML files",
+		"Graph the directory tree rooted at the current directory for YAML files.",
 		&graphCmd,
 	)
 	if err != nil {
