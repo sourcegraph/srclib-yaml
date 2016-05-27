@@ -15,8 +15,8 @@ import (
 type ScanCmd struct{}
 
 var (
-	parser          = flags.NewNamedParser("srclib-yaml", flags.Default)
-	scanCmd ScanCmd = ScanCmd{}
+	parser  = flags.NewNamedParser("srclib-yaml", flags.Default)
+	scanCmd = ScanCmd{}
 )
 
 func init() {
