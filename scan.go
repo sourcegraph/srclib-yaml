@@ -56,10 +56,9 @@ func (c *ScanCmd) Execute(args []string) error {
 }
 
 func scan(scanDir string) ([]*unit.SourceUnit, error) {
-	u := unit.SourceUnit{
-		Name: filepath.Base(scanDir),
-		Type: "yaml",
-	}
+	u := unit.SourceUnit{}
+	u.Key.Name = filepath.Base(scanDir)
+	u.Key.Type = "yaml"
 	units := []*unit.SourceUnit{&u}
 
 	if err := filepath.Walk(scanDir, func(path string, f os.FileInfo, err error) error {

@@ -31,7 +31,6 @@ func init() {
 
 func (c *GraphCmd) Execute(args []string) error {
 	inputBytes, err := ioutil.ReadAll(os.Stdin)
-	fmt.Println(inputBytes)
 	if err != nil {
 		return err
 	}
@@ -71,6 +70,11 @@ type T struct {
 //				Docs []*Doc
 //				Anns []*ann.Ann
 func Graph(units unit.SourceUnits) (*graph.Output, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Println(fmt.Errorf("failed to read file: %s", r))
+		}
+	}()
 	if len(units) > 1 {
 		return nil, errors.New("unexpected multiple units")
 	}
@@ -84,6 +88,8 @@ func Graph(units unit.SourceUnits) (*graph.Output, error) {
 	// For each token, get the byte ranges, token string, and add to Refs
 
 	for _, currentFile := range u.Files {
+		log.Print(currentFile)
+		log.Print(filepath.Dir(currentFile))
 		f, err := ioutil.ReadFile(currentFile)
 		if err != nil {
 			log.Printf("failed to read a source unit file: %s", err)
@@ -97,18 +103,21 @@ func Graph(units unit.SourceUnits) (*graph.Output, error) {
 		tokenList := yaml.Explore(node, x)
 		getLineAndColumn(tokenList, file, t)
 		for i, _ := range t.value {
-			start, end, value := findOffsets(file, t.line[i], t.column[i], t.value[i])
+			start, end, _ := findOffsets(file, t.line[i], t.column[i], t.value[i])
+			extension := filepath.Ext(currentFile)
+			defUnit := currentFile[0 : len(currentFile)-len(extension)]
 			out.Refs = append(out.Refs, &graph.Ref{
 				DefUnitType: "URL",
-				DefUnit:     "Circle",
-				DefPath:     filepath.ToSlash(currentFile) + string(start),
-				Unit:        value,
+				DefUnit:     defUnit,
+				DefPath:     filepath.Dir(currentFile),
+				Unit:        u.Name,
 				File:        filepath.ToSlash(currentFile),
 				Start:       uint32(start),
 				End:         uint32(end),
 			})
 		}
 	}
+	log.Println("end")
 	return &out, nil
 }
 
@@ -116,7 +125,7 @@ func getLineAndColumn(tokenList []*yaml.Node, fileString string, out *T) {
 	for _, token := range tokenList {
 		out.value = append(out.value, token.Value)
 		out.line = append(out.line, token.Line)
-		out.column = append(out.line, token.Column)
+		out.column = append(out.column, token.Column)
 		// a, b := findOffsets(data, token.Line, token.Column, token.Value)
 		// fmt.Println("start: ", a, "End: ", b)
 		getLineAndColumn(token.Children, fileString, out)
