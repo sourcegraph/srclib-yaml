@@ -88,8 +88,6 @@ func Graph(units unit.SourceUnits) (*graph.Output, error) {
 	// For each token, get the byte ranges, token string, and add to Refs
 
 	for _, currentFile := range u.Files {
-		log.Print(currentFile)
-		log.Print(filepath.Dir(currentFile))
 		f, err := ioutil.ReadFile(currentFile)
 		if err != nil {
 			log.Printf("failed to read a source unit file: %s", err)
@@ -103,21 +101,21 @@ func Graph(units unit.SourceUnits) (*graph.Output, error) {
 		tokenList := yaml.Explore(node, x)
 		getLineAndColumn(tokenList, file, t)
 		for i, _ := range t.value {
-			start, end, _ := findOffsets(file, t.line[i], t.column[i], t.value[i])
+			start, end, value := findOffsets(file, t.line[i], t.column[i], t.value[i])
 			extension := filepath.Ext(currentFile)
 			defUnit := currentFile[0 : len(currentFile)-len(extension)]
 			out.Refs = append(out.Refs, &graph.Ref{
 				DefUnitType: "URL",
 				DefUnit:     defUnit,
-				DefPath:     filepath.Dir(currentFile),
+				DefPath:     filepath.Dir(currentFile) + "/" + value,
 				Unit:        u.Name,
 				File:        filepath.ToSlash(currentFile),
 				Start:       uint32(start),
 				End:         uint32(end),
+				Def:         true,
 			})
 		}
 	}
-	log.Println("end")
 	return &out, nil
 }
 

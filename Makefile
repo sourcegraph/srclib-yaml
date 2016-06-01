@@ -14,7 +14,7 @@ clean:
 	rm -f ${EXE}
 
 govendor:
-	go get github.com/karidanos/govendor
+	go get github.com/kardianos/govendor
 	govendor sync
 
 ${EXE}: $(shell /usr/bin/find . -type f -and -name '*.go' -not -path './vendor/*')
