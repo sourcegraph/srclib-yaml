@@ -58,12 +58,6 @@ func (c *GraphCmd) Execute(args []string) error {
 	return nil
 }
 
-type T struct {
-	value  []string
-	line   []int
-	column []int
-}
-
 // graph.Output is a struct with fields:
 // 				Defs []*Def
 //				Refs []*Ref
@@ -94,98 +88,29 @@ func Graph(units unit.SourceUnits) (*graph.Output, error) {
 			continue
 		}
 		file := string(f)
-		t := &T{}
-		var x []*yaml.Node
 		p := yaml.NewParser([]byte(file))
+		// Root node of a file's tree
 		node := p.Parse()
-		tokenList := yaml.Explore(node, x)
-		getLineAndColumn(tokenList, file, t)
-		for i, _ := range t.value {
-			start, end, value := findOffsets(file, t.line[i], t.column[i], t.value[i])
+		// List of nodes representing tokens.  Remove the first because YAML
+		// always starts with an empty token, and begins any sequence with
+		// an empty token (both considered starting at byte 0). If we don't remove
+		// it, we will get a duplicate ref key make failure for every file.
+		tokenList := yaml.Explore(file, node)[1:]
+
+		for _, tok := range tokenList {
 			extension := filepath.Ext(currentFile)
 			defUnit := currentFile[0 : len(currentFile)-len(extension)]
 			out.Refs = append(out.Refs, &graph.Ref{
 				DefUnitType: "URL",
 				DefUnit:     defUnit,
-				DefPath:     filepath.Dir(currentFile) + "/" + value,
+				DefPath:     filepath.Dir(currentFile) + "/" + tok.Value,
 				Unit:        u.Name,
 				File:        filepath.ToSlash(currentFile),
-				Start:       uint32(start),
-				End:         uint32(end),
+				Start:       uint32(tok.StartByte),
+				End:         uint32(tok.EndByte),
 				Def:         true,
 			})
 		}
 	}
 	return &out, nil
 }
-
-func getLineAndColumn(tokenList []*yaml.Node, fileString string, out *T) {
-	for _, token := range tokenList {
-		out.value = append(out.value, token.Value)
-		out.line = append(out.line, token.Line)
-		out.column = append(out.column, token.Column)
-		// a, b := findOffsets(data, token.Line, token.Column, token.Value)
-		// fmt.Println("start: ", a, "End: ", b)
-		getLineAndColumn(token.Children, fileString, out)
-	}
-}
-func findOffsets(fileText string, line, column int, token string) (start, end int, value string) {
-
-	// we count our current line and column position.
-	currentCol := 0
-	currentLine := 0
-	for offset, ch := range fileText {
-		// see if we found where we wanted to go to.
-		if currentLine == line && currentCol == column {
-			end = offset + len([]byte(token))
-			return offset, end, token
-		}
-
-		// line break - increment the line counter and reset the column.
-		if ch == '\n' {
-			currentLine++
-			currentCol = 0
-		} else {
-			currentCol++
-		}
-	}
-	return -1, -1, token // not found.
-}
-
-// package main
-
-// import (
-// 	"fmt"
-// 	// "log"
-// 	"github.com/attfarhan/yaml"
-// 	// "github.com/shurcooL/go-goon"
-// )
-
-// var data = `language: go
-
-// go:
-//     - 1.4
-//     - 1.5
-//     - 1.6
-//     - tip
-
-// go_import_path: gopkg.in/yaml.v2`
-
-// func getLineAndColumn(tokenList []*yaml.Node, fileString string) {
-// 	for _, token := range tokenList {
-// 		fmt.Println("line: ", token.Line)
-// 		fmt.Println("column: ", token.Column)
-// 		fmt.Println("value:", token.Value)
-// 		fmt.Println(findOffsets(data, token.Line, token.Column, token.Value))
-// 		getLineAndColumn(token.Children, data)
-// 	}
-// }
-
-// // refs = append(refs, &graph.Ref{
-// // 	DefUnitType: "URL",
-// // 	DefUnit:     "MDN",
-// // 	DefPath:     mdnDefPath(d.Property),
-// // 	Unit:        u.Name,
-// // 	File:        filepath.ToSlash(filePath),
-// // 	Start:       uint32(s),
-// // 	End:         uint32(e),
