@@ -2,12 +2,12 @@ package main
 
 import (
 	"encoding/json"
+	"github.com/jessevdk/go-flags"
 	"log"
 	"os"
 	"path/filepath"
-
-	"github.com/jessevdk/go-flags"
 	"sourcegraph.com/sourcegraph/srclib/unit"
+	"strings"
 )
 
 // YAML does not require special configuration, so all srcfileconfig logic
@@ -59,6 +59,7 @@ func scan(scanDir string) ([]*unit.SourceUnit, error) {
 	u := unit.SourceUnit{}
 	u.Key.Name = filepath.Base(scanDir)
 	u.Key.Type = "yaml"
+	u.Key.Repo = strings.Join([]string{filepath.Base(filepath.Dir(scanDir)), filepath.Base(scanDir)}, "/")
 	units := []*unit.SourceUnit{&u}
 
 	if err := filepath.Walk(scanDir, func(path string, f os.FileInfo, err error) error {

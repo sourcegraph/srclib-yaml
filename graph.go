@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"sourcegraph.com/sourcegraph/srclib/graph"
 	"sourcegraph.com/sourcegraph/srclib/unit"
+	"strings"
 )
 
 type GraphCmd struct{}
@@ -96,15 +97,28 @@ func Graph(units unit.SourceUnits) (*graph.Output, error) {
 		// an empty token (both considered starting at byte 0). If we don't remove
 		// it, we will get a duplicate ref key make failure for every file.
 		tokenList := yaml.Explore(file, node)[1:]
-
 		for _, tok := range tokenList {
 			extension := filepath.Ext(currentFile)
 			defUnit := currentFile[0 : len(currentFile)-len(extension)]
+			if u.Key.Repo == "attfarhan/yaml-manual" && len(tok.Value) > 0 {
+				out.Defs = append(out.Defs, &graph.Def{
+					DefKey: graph.DefKey{
+						Repo:     u.Key.Repo,
+						UnitType: u.Key.Type,
+						Unit:     u.Key.Name,
+						Path:     tok.Value},
+					Kind:     "key",
+					File:     filepath.ToSlash(currentFile),
+					DefStart: uint32(tok.StartByte),
+					DefEnd:   uint32(tok.EndByte),
+					TreePath: strings.Join([]string{"./yaml-manual/", u.Key.Name}, ""),
+				})
+			}
 			out.Refs = append(out.Refs, &graph.Ref{
-				DefUnitType: "URL",
+				DefUnitType: "yaml",
 				DefUnit:     defUnit,
 				DefPath:     filepath.Dir(currentFile) + "/" + tok.Value,
-				Unit:        u.Name,
+				Unit:        u.Key.Name,
 				File:        filepath.ToSlash(currentFile),
 				Start:       uint32(tok.StartByte),
 				End:         uint32(tok.EndByte),
